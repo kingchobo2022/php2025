@@ -1,59 +1,85 @@
 <?php
-session_start();
+require_once 'config/db.php';
 
-if(!isset($_SESSION['todos'])) {
-	$_SESSION['todos'] = [];
-}
+$action = $_POST['action'] ?? '';
+$todo_text = $_POST['todo_text'] ?? '';
 
-$message = ''; // 사용자에게 보여줄 메시지
 
-// 할일 추가
-if (isset($_POST['action']) && $_POST['action'] === 'add' && !empty($_POST['todo_text'])) {
-	$todoText = htmlspecialchars(trim($_POST['todo_text']));
-	if($todoText !== '') {
-		$_SESSION['todos'][] = [
-			'id' => uniqid(), // 고유 ID 생성
-			'text' => $todoText,
-			'completed' => false
-		];
+$message = '';
+// 할 일 추가
+if($action == 'add' && $todo_text != '') {
+	$todoText = htmlspecialchars($todo_text, ENT_QUOTES, 'UTF-8');
+
+	$sql = "INSERT INTO todos (title, created_at) VALUES (:title, NOW())";
+	try {
+		$stmt = $pdo->prepare($sql);
+		$stmt->execute([':title' => $todoText]);
+
 		$message = '할 일이 추가되었습니다.';
-	} else {
-		$message = '할 내용을 입력해주세요.';
-	}
-}
 
-// 할일 완료 / 미완료 토글 처리
-if (isset($_GET['action']) && $_GET['action'] == 'toggle' && isset($_GET['id'])) {
-	$idToToggle = $_GET['id'];
-	foreach($_SESSION['todos'] as &$todo) {
-		if($todo['id'] === $idToToggle) {
-			$todo['completed'] = !$todo['completed'];
-			$message = '할일의 상태가 변경되었습니다.';
-			break;
-		}
+
+	} catch (PDOException $e) {
+		// echo "Insert Err : ". $e->getMessage();
+		$message = '입력과정에 오류가 발생했습니다.';
 	}
 
-	header('Location: todo.php');
-	exit;
-}
-
-
-// 할일 삭제
-if (isset($_GET['action']) && $_GET['action'] === 'delete' && isset($_GET['id'])) {
-	$idTodDelete = $_GET['id'];
-	$_SESSION['todos'] = array_filter($_SESSION['todos'], function($todo) use ($idTodDelete){
-		return $todo['id'] !== $idTodDelete;
-	});
-	header('Location: todo.php');
+	header('Location: index.php');
 	exit;
 }
 
 // 모든 할 일 삭제
-if(isset($_POST['action']) && $_POST['action'] === 'clear_all') {
-	$_SESSION['todos'] = [];
-	$message = '모든 할 일이 삭제되었습니다.';
+if ($action == 'clear_all') {
+	$sql = "DELETE FROM todos WHERE 1";
+	$pdo->query($sql);	
+
+	header('Location: index.php');
+	exit;
 }
 
+
+
+$action = $_GET['action'] ?? '';
+$id = $_GET['id'] ?? '';
+
+// 할일 완료/미완료 toggle
+if ($action == 'toggle' && $id != '' && is_numeric($id))  {
+	
+	$sql = "UPDATE todos SET is_completed = 1 - is_completed WHERE id=:id";
+	try {
+		$stmt = $pdo->prepare($sql);
+		$stmt->execute([':id' => $id]);
+
+		header('Location: index.php');
+		exit;
+
+	} catch (PDOException $e) {
+		// echo "Update Err : ". $e->getMessage();
+		$message = '수정과정에 오류가 발생했습니다.';
+	}
+}
+
+// 할일 삭제
+if ($action == 'delete' && $id != '' && is_numeric($id))  {
+	$sql = "DELETE FROM todos WHERE id=:id";
+	try {
+		$stmt = $pdo->prepare($sql);
+		$stmt->execute([':id' => $id]);
+
+		header('Location: index.php');
+		exit;
+
+	} catch (PDOException $e) {
+		// echo "Delete Err : ". $e->getMessage();
+		$message = '삭제과정에 오류가 발생했습니다.';
+	}
+}
+
+
+
+$sql = "SELECT * FROM todos ORDER BY id ASC";
+$stmt = $pdo->prepare($sql);
+$stmt->execute();
+$rs = $stmt->fetchAll();
 ?>
 <html lang="ko"><head>
     <meta charset="UTF-8">
@@ -160,50 +186,50 @@ if(isset($_POST['action']) && $_POST['action'] === 'clear_all') {
 <body>
     <div class="container">
         <h1>나의 할 일 목록</h1>
-		<?php if($message){ ?>
-		<div class="message"><?php echo $message; ?></div>
-		<?php } ?>		
-        <form action="todo.php" method="POST">
+
+		<?php if($message != ''): ?>
+		<div class="message"><?= $message ?></div>
+		<?php endif; ?>
+
+        <form method="POST" action="index.php">
             <input type="text" name="todo_text" placeholder="새로운 할 일을 입력하세요" required>
             <button type="submit" name="action" value="add">추가</button>
         </form>
 
 		<ul>
-			<?php if(empty($_SESSION['todos'])){ ?>
-			<p class="text-algin:center">아직 할일이 없습니다. 새로운 할 일을 추가해 보세요!</p>
-			<?php } else { ?>
-			<?php
-			foreach($_SESSION['todos'] as $todo): ?>
-			<li <?php echo $todo['completed'] ? 'class="completed"': '' ?>>
-				<span class="todo-text" data-id="<?php echo $todo['id']; ?>"><?php echo $todo['text']; ?></span>
+<?php
+	foreach($rs AS $row):
+?>			
+			<li class="<?= $row['is_completed'] ? 'completed' : '' ?>">
+				<span class="todo-text"><?= $row['title'] ?></span>
 				<div class="actions">
-					<a href="todo.php?action=toggle&id=<?php echo $todo['id']; ?>"><?php echo $todo['completed'] ? '미완료':'완료'; ?></a>
-					<a href="#" class="delete" data-id="<?php echo $todo['id']; ?>">삭제</a>
+					<a href="index.php?action=toggle&id=<?= $row['id'] ?>"><?= $row['is_completed'] ? '완료' : '미완료' ?></a>
+					<a href="#" data-id="<?= $row['id'] ?>" class="delete">삭제</a>
 				</div>
 			</li>
-			<?php endforeach; ?>
+<?php
+	endforeach;
+?>			
 
-			<?php } ?>
 		</ul>
 
-		<form action="todo.php" method="POST" class="clear-all-form">
-			<button type="submit" name="action" value="clear_all" onclick="return confirm('정말로 모든 할 일을 삭제하시겠습니까?')">모든 할 일 삭제</button>
+		<form action="index.php" method="POST" class="clear-all-form">
+			<button type="submit" name="action" value="clear_all"
+			onclick="return confirm('전체 할 일을 삭제하시겠습니까?')"
+			>모든 할 일 삭제</button>
 		</form>
 	</div>
+
 <script>
-document.querySelectorAll('.delete')?.forEach((el) => {
-	el.addEventListener("click", function(event) {
+document.querySelectorAll('.delete').forEach((el) => {
+	el.addEventListener("click", function(event){
 		event.preventDefault();
 		if(confirm('삭제하시겠습니까?')) {
-			self.location.href='todo.php?action=delete&id=' + el.dataset.id;
+			self.location.href='index.php?action=delete&id=' + el.dataset.id;
 		}
-	});
-});
-document.querySelectorAll('.todo-text')?.forEach( (el) => {
-	el.addEventListener("click", function() {
-		self.location.href = 'todo.php?action=toggle&id=' + el.dataset.id;
-	});
-});
+	});	
+});	
 </script>	
+
 </body>
 </html>

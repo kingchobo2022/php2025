@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>투표 시스템</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="container py-5">
+    <h2 class="mb-4">투표 주제</h2>
+
+    
+        <div class="alert alert-info">이미 투표하셨습니다. 결과를 확인하세요.</div>
+        <ul class="list-group">
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                    사과
+                    <span class="badge bg-primary rounded-pill">5표</span>
+                </li>
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                    바나나
+                    <span class="badge bg-primary rounded-pill">0표</span>
+                </li>
+        </ul>
+
+        <form action="vote.php" method="post">
+            
+                <div class="form-check mb-2">
+                    <input class="form-check-input" type="radio" name="option_id" value="1" id="option1" required>
+                    <label class="form-check-label" for="option1">
+                        사과
+                    </label>
+                </div>
+                <div class="form-check mb-2">
+                    <input class="form-check-input" type="radio" name="option_id" value="2" id="option2" required>
+                    <label class="form-check-label" for="option2">
+                        바나나
+                    </label>
+                </div>
+            
+            <button class="btn btn-success mt-3">투표하기</button>
+        </form>
+
+</body>
+</html>
